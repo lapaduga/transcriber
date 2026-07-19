@@ -1,0 +1,539 @@
+(function () {
+    const messagesEl = document.getElementById('messages');
+    const inputEl = document.getElementById('message-input');
+    const sendBtn = document.getElementById('send-btn');
+    const fileInput = document.getElementById('file-input');
+    const filePreview = document.getElementById('file-preview');
+    const fileName = document.getElementById('file-name');
+    const fileRemove = document.getElementById('file-remove');
+    const dropZone = document.getElementById('drop-zone');
+    const chatList = document.getElementById('chat-list');
+    const newChatBtn = document.getElementById('new-chat-btn');
+    const progressOverlay = document.getElementById('progress-overlay');
+    const progressBar = document.getElementById('progress-bar');
+    const progressPhase = document.getElementById('progress-phase');
+    const progressPercent = document.getElementById('progress-percent');
+    const progressTimer = document.getElementById('progress-timer');
+    const cancelBtn = document.getElementById('cancel-btn');
+    const statusDot = document.querySelector('.status-dot');
+    const statusText = document.querySelector('.status-text');
+    const addVideoBtn = document.getElementById('add-video-btn');
+    const cpuBar = document.getElementById('cpu-bar');
+    const cpuVal = document.getElementById('cpu-val');
+    const ramBar = document.getElementById('ram-bar');
+    const ramVal = document.getElementById('ram-val');
+    const gpuRow = document.getElementById('gpu-row');
+    const gpuBar = document.getElementById('gpu-bar');
+    const gpuVal = document.getElementById('gpu-val');
+
+    let chats = JSON.parse(localStorage.getItem('transcriber_chats') || '{}');
+    let currentChatId = null;
+    let selectedFile = null;
+    let uploadedFilePath = null;
+    let sending = false;
+    let activeEventSource = null;
+    let activeJobId = null;
+
+    function saveChats() {
+        localStorage.setItem('transcriber_chats', JSON.stringify(chats));
+    }
+
+    function generateId() {
+        return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+    }
+
+    function formatElapsed(sec) {
+        const m = Math.floor(sec / 60);
+        const s = sec % 60;
+        return m + ':' + String(s).padStart(2, '0');
+    }
+
+    function formatDuration(sec) {
+        const h = Math.floor(sec / 3600);
+        const m = Math.floor((sec % 3600) / 60);
+        const s = sec % 60;
+        if (h > 0) return h + 'h ' + m + 'm ' + s + 's';
+        if (m > 0) return m + 'm ' + s + 's';
+        return s + 's';
+    }
+
+    function checkHealth() {
+        fetch('/api/health')
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (data.mcp && data.deepseek) {
+                    statusDot.className = 'status-dot ok';
+                    statusText.textContent = 'All systems ready';
+                } else {
+                    statusDot.className = 'status-dot';
+                    var issues = [];
+                    if (!data.mcp) issues.push('MCP');
+                    if (!data.deepseek) issues.push('DeepSeek');
+                    statusText.textContent = issues.join(', ') + ' unavailable';
+                }
+            })
+            .catch(function () {
+                statusDot.className = 'status-dot';
+                statusText.textContent = 'Server offline';
+            });
+    }
+
+    function renderChatList() {
+        chatList.innerHTML = '';
+        var ids = Object.keys(chats).sort(function (a, b) {
+            return (chats[b].updatedAt || 0) - (chats[a].updatedAt || 0);
+        });
+        ids.forEach(function (id) {
+            var chat = chats[id];
+            var div = document.createElement('div');
+            div.className = 'chat-item' + (id === currentChatId ? ' active' : '');
+
+            var text = document.createElement('span');
+            text.className = 'chat-item-text';
+            var firstMsg = chat.messages.find(function (m) { return m.role === 'user'; });
+            text.textContent = firstMsg ? firstMsg.content.slice(0, 40) : 'New chat';
+
+            var del = document.createElement('button');
+            del.className = 'chat-item-delete';
+            del.title = 'Delete chat';
+            del.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
+            del.addEventListener('click', function (e) {
+                e.stopPropagation();
+                deleteChat(id);
+            });
+
+            div.appendChild(text);
+            div.appendChild(del);
+            div.addEventListener('click', function () { switchChat(id); });
+            chatList.appendChild(div);
+        });
+    }
+
+    function deleteChat(id) {
+        delete chats[id];
+        saveChats();
+        if (currentChatId === id) {
+            var remaining = Object.keys(chats);
+            currentChatId = remaining.length > 0 ? remaining[0] : null;
+        }
+        renderChatList();
+        renderMessages();
+    }
+
+    function switchChat(id) {
+        currentChatId = id;
+        renderChatList();
+        renderMessages();
+    }
+
+    function newChat() {
+        var id = generateId();
+        chats[id] = { messages: [], updatedAt: Date.now() };
+        currentChatId = id;
+        saveChats();
+        renderChatList();
+        renderMessages();
+    }
+
+    function renderMessages() {
+        messagesEl.innerHTML = '';
+        var chat = chats[currentChatId];
+        if (!chat || chat.messages.length === 0) {
+            messagesEl.innerHTML =
+                '<div class="welcome">' +
+                '<div class="welcome-icon">' +
+                '<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#6c5ce7" stroke-width="1.5">' +
+                '<polygon points="23 7 16 12 23 17 23 7"/>' +
+                '<rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>' +
+                '</svg>' +
+                '</div>' +
+                '<h1>Video Transcriber</h1>' +
+                '<p>Drop a video or audio file, or just type a message.</p>' +
+                '</div>';
+            return;
+        }
+        chat.messages.forEach(function (msg) {
+            addMessageToDOM(msg.role, msg.content);
+            if (msg.role === 'assistant' && msg.content && (msg.content.indexOf('| Time') !== -1 || msg.content.indexOf('| Timestamp') !== -1)) {
+                appendTranscriptionMeta(msg.content, null);
+            }
+        });
+        scrollToBottom();
+    }
+
+    function parseMarkdown(text) {
+        if (!text) return '';
+        var html = text
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;');
+
+        html = html.replace(/```(\w*)\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>');
+        html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+        html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+        html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
+
+        var lines = html.split('\n');
+        var inTable = false;
+        var tableRows = [];
+        var result = [];
+
+        lines.forEach(function (line) {
+            var trimmed = line.trim();
+            if (trimmed.startsWith('|') && trimmed.endsWith('|')) {
+                if (trimmed.replace(/[|\s\-:]/g, '') === '') return;
+                if (!inTable) { inTable = true; tableRows = []; }
+                var cells = trimmed.split('|').slice(1, -1).map(function (c) { return c.trim(); });
+                tableRows.push(cells);
+            } else {
+                if (inTable) {
+                    result.push(renderTable(tableRows));
+                    inTable = false;
+                    tableRows = [];
+                }
+                if (trimmed) result.push('<p>' + trimmed + '</p>');
+            }
+        });
+        if (inTable) result.push(renderTable(tableRows));
+        return result.join('');
+    }
+
+    function renderTable(rows) {
+        if (rows.length === 0) return '';
+        var html = '<table>';
+        html += '<thead><tr>' + rows[0].map(function (c) { return '<th>' + c + '</th>'; }).join('') + '</tr></thead>';
+        if (rows.length > 1) {
+            html += '<tbody>' + rows.slice(1).map(function (r) {
+                return '<tr>' + r.map(function (c) { return '<td>' + c + '</td>'; }).join('') + '</tr>';
+            }).join('') + '</tbody>';
+        }
+        html += '</table>';
+        return html;
+    }
+
+    function addMessageToDOM(role, content) {
+        var div = document.createElement('div');
+        div.className = 'message message-' + role;
+        var contentDiv = document.createElement('div');
+        contentDiv.className = 'message-content';
+        if (role === 'assistant') {
+            contentDiv.innerHTML = parseMarkdown(content);
+        } else {
+            contentDiv.textContent = content;
+        }
+        div.appendChild(contentDiv);
+        messagesEl.appendChild(div);
+    }
+
+    function appendTranscriptionMeta(content, duration) {
+        var lastMsg = messagesEl.querySelector('.message-assistant:last-child .message-content');
+        if (!lastMsg) return;
+
+        var meta = document.createElement('div');
+        meta.className = 'transcription-meta';
+
+        var dlBtn = document.createElement('a');
+        dlBtn.className = 'md-download';
+        dlBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Download .md';
+        dlBtn.onclick = function () {
+            var blob = new Blob([content], { type: 'text/markdown' });
+            var url = URL.createObjectURL(blob);
+            var a = document.createElement('a');
+            a.href = url;
+            a.download = 'transcription.md';
+            a.click();
+            URL.revokeObjectURL(url);
+        };
+        meta.appendChild(dlBtn);
+
+        if (duration) {
+            var label = document.createElement('span');
+            label.className = 'duration-label';
+            label.textContent = 'Transcription took ' + duration;
+            meta.appendChild(label);
+        }
+
+        lastMsg.appendChild(meta);
+    }
+
+    function scrollToBottom() {
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
+
+    async function uploadFile(file) {
+        var formData = new FormData();
+        formData.append('file', file);
+        var resp = await fetch('/api/upload', { method: 'POST', body: formData });
+        if (!resp.ok) {
+            var err = await resp.json();
+            throw new Error(err.error || 'Upload failed');
+        }
+        return await resp.json();
+    }
+
+    function showProgress(jobId) {
+        progressOverlay.classList.add('active');
+        progressBar.style.width = '0%';
+        progressPhase.textContent = 'Starting...';
+        progressPercent.textContent = '0%';
+        progressTimer.textContent = '0:00';
+        activeJobId = jobId;
+
+        if (activeEventSource) activeEventSource.close();
+
+        var evtSource = new EventSource('/api/stream/' + jobId);
+        activeEventSource = evtSource;
+
+        evtSource.onmessage = function (e) {
+            var data = JSON.parse(e.data);
+            var pct = Math.round((data.progress || 0) * 100);
+            progressBar.style.width = pct + '%';
+            progressPercent.textContent = pct + '%';
+            progressPhase.textContent = capitalize(data.phase || 'Processing...');
+            progressTimer.textContent = formatElapsed(data.elapsed || 0);
+
+            if (data.status === 'done') {
+                evtSource.close();
+                activeEventSource = null;
+                activeJobId = null;
+                progressBar.style.width = '100%';
+                progressPercent.textContent = '100%';
+                progressPhase.textContent = 'Done!';
+
+                if (data.message) {
+                    addMessageToDOM('assistant', data.message);
+                    appendTranscriptionMeta(data.message, data.duration);
+
+                    var chat = chats[currentChatId];
+                    if (chat) {
+                        chat.messages.push({ role: 'assistant', content: data.message });
+                        chat.updatedAt = Date.now();
+                        saveChats();
+                        renderChatList();
+                    }
+                }
+                scrollToBottom();
+                setTimeout(function () { progressOverlay.classList.remove('active'); }, 1200);
+                sending = false;
+                sendBtn.disabled = false;
+            } else if (data.status === 'error' || data.status === 'cancelled') {
+                evtSource.close();
+                activeEventSource = null;
+                activeJobId = null;
+                var msg = data.status === 'cancelled' ? 'Transcription cancelled.' : (data.message || data.error || 'Unknown error');
+                addMessageToDOM('assistant', msg);
+                var chat2 = chats[currentChatId];
+                if (chat2) {
+                    chat2.messages.push({ role: 'assistant', content: msg });
+                    chat2.updatedAt = Date.now();
+                    saveChats();
+                    renderChatList();
+                }
+                scrollToBottom();
+                progressOverlay.classList.remove('active');
+                sending = false;
+                sendBtn.disabled = false;
+            }
+        };
+
+        evtSource.onerror = function () {
+            evtSource.close();
+            activeEventSource = null;
+            activeJobId = null;
+            progressOverlay.classList.remove('active');
+            sending = false;
+            sendBtn.disabled = false;
+        };
+    }
+
+    function cancelTranscription() {
+        if (!activeJobId) return;
+        fetch('/api/cancel/' + activeJobId, { method: 'POST' }).catch(function () {});
+    }
+
+    function capitalize(s) {
+        return s.charAt(0).toUpperCase() + s.slice(1);
+    }
+
+    function clearFile() {
+        selectedFile = null;
+        uploadedFilePath = null;
+        filePreview.style.display = 'none';
+        fileName.textContent = '';
+        fileInput.value = '';
+    }
+
+    function handleFile(file) {
+        if (!file) return;
+        if (file.size > 500 * 1024 * 1024) {
+            alert('File too large. Max 500 MB.');
+            return;
+        }
+        selectedFile = file;
+        fileName.textContent = file.name;
+        filePreview.style.display = 'block';
+        inputEl.placeholder = 'Press Enter or click Send to transcribe...';
+        inputEl.focus();
+    }
+
+    async function sendMessage() {
+        var text = inputEl.value.trim();
+        if (!text && !selectedFile) return;
+        if (sending) return;
+        sending = true;
+        sendBtn.disabled = true;
+
+        if (!currentChatId) newChat();
+
+        var displayMessage = text;
+        if (selectedFile && text) {
+            displayMessage = text;
+        } else if (selectedFile && !text) {
+            displayMessage = 'Transcribe file: ' + selectedFile.name;
+        }
+
+        chats[currentChatId].messages.push({ role: 'user', content: displayMessage });
+        chats[currentChatId].updatedAt = Date.now();
+        saveChats();
+        renderChatList();
+
+        addMessageToDOM('user', displayMessage);
+        inputEl.value = '';
+        inputEl.style.height = 'auto';
+        scrollToBottom();
+
+        var filePath = uploadedFilePath;
+
+        if (selectedFile && !uploadedFilePath) {
+            try {
+                var result = await uploadFile(selectedFile);
+                filePath = result.path;
+            } catch (e) {
+                addMessageToDOM('assistant', 'Upload error: ' + e.message);
+                sending = false;
+                sendBtn.disabled = false;
+                return;
+            }
+        }
+        clearFile();
+
+        try {
+            var resp = await fetch('/api/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    message: displayMessage,
+                    conversation_id: currentChatId,
+                    file_path: filePath || undefined
+                })
+            });
+            var data = await resp.json();
+
+            if (data.error) {
+                addMessageToDOM('assistant', 'Error: ' + data.error);
+                sending = false;
+                sendBtn.disabled = false;
+            } else if (data.job_id) {
+                showProgress(data.job_id);
+            } else {
+                addMessageToDOM('assistant', data.message);
+                chats[currentChatId].messages.push({ role: 'assistant', content: data.message });
+                chats[currentChatId].updatedAt = Date.now();
+                saveChats();
+                renderChatList();
+                scrollToBottom();
+                sending = false;
+                sendBtn.disabled = false;
+            }
+        } catch (e) {
+            addMessageToDOM('assistant', 'Connection error: ' + e.message);
+            sending = false;
+            sendBtn.disabled = false;
+        }
+    }
+
+    inputEl.addEventListener('input', function () {
+        this.style.height = 'auto';
+        this.style.height = Math.min(this.scrollHeight, 150) + 'px';
+    });
+
+    inputEl.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            sendMessage();
+        }
+    });
+
+    sendBtn.addEventListener('click', sendMessage);
+    cancelBtn.addEventListener('click', cancelTranscription);
+    newChatBtn.addEventListener('click', newChat);
+
+    fileRemove.addEventListener('click', function () {
+        clearFile();
+        inputEl.placeholder = 'Upload a file or type a message...';
+    });
+
+    fileInput.addEventListener('change', function () {
+        if (this.files.length > 0) handleFile(this.files[0]);
+    });
+
+    addVideoBtn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        fileInput.click();
+    });
+
+    dropZone.addEventListener('dragover', function (e) {
+        e.preventDefault();
+        this.classList.add('drag-over');
+    });
+    dropZone.addEventListener('dragleave', function () {
+        this.classList.remove('drag-over');
+    });
+    dropZone.addEventListener('drop', function (e) {
+        e.preventDefault();
+        this.classList.remove('drag-over');
+        if (e.dataTransfer.files.length > 0) handleFile(e.dataTransfer.files[0]);
+    });
+
+    document.addEventListener('paste', function (e) {
+        var items = e.clipboardData.items;
+        for (var i = 0; i < items.length; i++) {
+            if (items[i].kind === 'file') {
+                handleFile(items[i].getAsFile());
+                break;
+            }
+        }
+    });
+
+    checkHealth();
+    setInterval(checkHealth, 30000);
+
+    function updateStats() {
+        fetch('/api/stats')
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                cpuBar.style.width = data.cpu + '%';
+                cpuVal.textContent = data.cpu + '%';
+                ramBar.style.width = data.ram_percent + '%';
+                ramVal.textContent = data.ram_used + ' / ' + data.ram_total + ' GB';
+                if (data.gpu_total) {
+                    gpuRow.style.display = '';
+                    var gpuPct = Math.round((data.gpu_used / data.gpu_total) * 100);
+                    gpuBar.style.width = gpuPct + '%';
+                    gpuVal.textContent = data.gpu_used + ' / ' + data.gpu_total + ' GB';
+                }
+            })
+            .catch(function () {});
+    }
+    updateStats();
+    setInterval(updateStats, 3000);
+
+    if (Object.keys(chats).length > 0) {
+        var latest = Object.keys(chats).sort(function (a, b) {
+            return (chats[b].updatedAt || 0) - (chats[a].updatedAt || 0);
+        })[0];
+        switchChat(latest);
+    } else {
+        renderChatList();
+    }
+})();

@@ -1,0 +1,9 @@
+{
+  "name": "video-transcriber",
+  "version": "1.0.0",
+  "description": "Video transcription via DeepSeek Agent + MCP",
+  "scripts": {
+    "start": "python server.py",
+    "mcp": "python mcp_server.py"
+  }
+}

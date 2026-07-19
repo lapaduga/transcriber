@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video Transcriber</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%236c5ce7'/%3E%3Cpolygon points='12,8 24,16 12,24' fill='white'/%3E%3C/svg%3E">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <div class="app">
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h2>Transcriber</h2>
+                <button id="new-chat-btn" title="New chat">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="sidebar-chats" id="chat-list"></div>
+            <div class="sidebar-footer">
+                <div class="status" id="status-indicator">
+                    <span class="status-dot"></span>
+                    <span class="status-text">Checking...</span>
+                </div>
+            </div>
+        </aside>
+
+        <main class="chat-area">
+            <div class="messages" id="messages">
+                <div class="welcome">
+                    <div class="welcome-icon">
+                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#6c5ce7" stroke-width="1.5">
+                            <polygon points="23 7 16 12 23 17 23 7"/>
+                            <rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
+                        </svg>
+                    </div>
+                    <h1>Video Transcriber</h1>
+                    <p>Drop a video or audio file, or just type a message.</p>
+                </div>
+            </div>
+
+            <div class="progress-overlay" id="progress-overlay">
+                <div class="progress-card">
+                    <div class="progress-spinner"></div>
+                    <div class="progress-phase" id="progress-phase">Preparing...</div>
+                    <div class="progress-timer" id="progress-timer">0:00</div>
+                    <div class="progress-bar-container">
+                        <div class="progress-bar" id="progress-bar"></div>
+                    </div>
+                    <div class="progress-bottom">
+                        <span class="progress-percent" id="progress-percent">0%</span>
+                        <button class="cancel-btn" id="cancel-btn">Cancel</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="input-area">
+                <div class="file-preview" id="file-preview" style="display:none">
+                    <div class="file-info">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/>
+                            <polyline points="13 2 13 9 20 9"/>
+                        </svg>
+                        <span id="file-name"></span>
+                        <button id="file-remove" title="Remove file">&times;</button>
+                    </div>
+                </div>
+                <div class="drop-zone" id="drop-zone">
+                    <button id="add-video-btn" title="Add video/audio file">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polygon points="23 7 16 12 23 17 23 7"/>
+                            <rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
+                        </svg>
+                    </button>
+                    <textarea id="message-input" placeholder="Upload a file or type a message..." rows="1"></textarea>
+                    <button id="send-btn" title="Send">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="22" y1="2" x2="11" y2="13"/>
+                            <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+                        </svg>
+                    </button>
+                </div>
+                <input type="file" id="file-input" accept="video/*,audio/*" style="display:none">
+            </div>
+        </main>
+
+        <aside class="stats-panel" id="stats-panel">
+            <div class="stats-header">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>
+                </svg>
+                <span>System</span>
+            </div>
+            <div class="stats-body">
+                <div class="stat-row">
+                    <span class="stat-label">CPU</span>
+                    <div class="stat-bar-wrap"><div class="stat-bar" id="cpu-bar"></div></div>
+                    <span class="stat-value" id="cpu-val">--</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">RAM</span>
+                    <div class="stat-bar-wrap"><div class="stat-bar" id="ram-bar"></div></div>
+                    <span class="stat-value" id="ram-val">--</span>
+                </div>
+                <div class="stat-row" id="gpu-row" style="display:none">
+                    <span class="stat-label">GPU</span>
+                    <div class="stat-bar-wrap"><div class="stat-bar" id="gpu-bar"></div></div>
+                    <span class="stat-value" id="gpu-val">--</span>
+                </div>
+            </div>
+        </aside>
+    </div>
+
+    <script src="/js/app.js"></script>
+</body>
+</html>
