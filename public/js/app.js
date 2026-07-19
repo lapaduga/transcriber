@@ -148,7 +148,26 @@
                 '</svg>' +
                 '</div>' +
                 '<h1>Video Transcriber</h1>' +
-                '<p>Drop a video or audio file, or just type a message.</p>' +
+                '<p class="welcome-subtitle">AI-powered transcription assistant</p>' +
+                '<div class="welcome-features">' +
+                '<div class="welcome-feature">' +
+                '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>' +
+                '<span>Transcribe video &amp; audio files with timestamps</span>' +
+                '</div>' +
+                '<div class="welcome-feature">' +
+                '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>' +
+                '<span>Download results as Markdown files</span>' +
+                '</div>' +
+                '<div class="welcome-feature">' +
+                '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>' +
+                '<span>Real-time progress tracking</span>' +
+                '</div>' +
+                '<div class="welcome-feature">' +
+                '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>' +
+                '<span>Chat with AI about your transcriptions</span>' +
+                '</div>' +
+                '</div>' +
+                '<p class="welcome-hint">Drop a file or type a message to get started</p>' +
                 '</div>';
             return;
         }
@@ -254,6 +273,17 @@
         }
 
         lastMsg.appendChild(meta);
+    }
+
+    function addThinkingIndicator() {
+        var div = document.createElement('div');
+        div.className = 'message message-assistant thinking-message';
+        var contentDiv = document.createElement('div');
+        contentDiv.className = 'message-content thinking-bubble';
+        contentDiv.innerHTML = '<span class="thinking-dot"></span><span class="thinking-dot"></span><span class="thinking-dot"></span>';
+        div.appendChild(contentDiv);
+        messagesEl.appendChild(div);
+        return div;
     }
 
     function scrollToBottom() {
@@ -417,6 +447,12 @@
         }
         clearFile();
 
+        var thinkingEl = null;
+        if (!filePath) {
+            thinkingEl = addThinkingIndicator();
+            scrollToBottom();
+        }
+
         try {
             var resp = await fetch('/api/chat', {
                 method: 'POST',
@@ -428,6 +464,8 @@
                 })
             });
             var data = await resp.json();
+
+            if (thinkingEl) thinkingEl.remove();
 
             if (data.error) {
                 addMessageToDOM('assistant', 'Error: ' + data.error);
@@ -446,6 +484,7 @@
                 sendBtn.disabled = false;
             }
         } catch (e) {
+            if (thinkingEl) thinkingEl.remove();
             addMessageToDOM('assistant', 'Connection error: ' + e.message);
             sending = false;
             sendBtn.disabled = false;
