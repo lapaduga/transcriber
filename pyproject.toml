@@ -1,0 +1,50 @@
+[project]
+name = "video-transcriber"
+version = "1.0.0"
+description = "Video transcription via DeepSeek Agent + MCP"
+requires-python = ">=3.10"
+dependencies = [
+    "flask>=3.0",
+    "flask-cors>=6.0",
+    "httpx>=0.27",
+    "psutil>=7.0",
+    "python-dotenv>=1.0",
+    "faster-whisper>=1.0",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "I",    # isort
+    "N",    # pep8-naming
+    "UP",   # pyupgrade
+    "B",    # flake8-bugbear
+    "SIM",  # flake8-simplify
+    "RUF",  # ruff-specific
+]
+ignore = [
+    "E501",   # line too long (handled by formatter)
+    "B008",   # function call in default argument (Flask route pattern)
+    "RUF001", # ambiguous Unicode chars (Cyrillic is intentional)
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["flask"]
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+check_untyped_defs = true
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["faster_whisper.*"]
+ignore_missing_imports = true

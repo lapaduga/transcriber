@@ -1,9 +1,10 @@
 import os
-import uuid
-import time
 import threading
-from flask import Flask, request, jsonify
+import uuid
+
 from dotenv import load_dotenv
+
+from flask import Flask, jsonify, request
 
 load_dotenv()
 
@@ -20,12 +21,12 @@ jobs_lock = threading.Lock()
 TOOLS = [
     {
         "name": "transcribe_video",
-        "description": "Transcribe audio or video file to text with timestamps",
+        "description": "Транскрибировать аудио или видеофайл в текст с таймкодами",
         "inputSchema": {
             "type": "object",
             "properties": {
-                "file_path": {"type": "string", "description": "Absolute path to the audio or video file"},
-                "language": {"type": "string", "description": "Language code (auto, ru, en, etc.)", "default": "auto"},
+                "file_path": {"type": "string", "description": "Абсолютный путь к аудио или видеофайлу"},
+                "language": {"type": "string", "description": "Код языка (auto, ru, en и т.д.)", "default": "auto"},
             },
             "required": ["file_path"],
         },
@@ -47,13 +48,13 @@ def run_transcription(job_id, file_path, language):
     try:
         with jobs_lock:
             jobs[job_id]["status"] = "running"
-            jobs[job_id]["phase"] = "loading model"
+            jobs[job_id]["phase"] = "загрузка модели"
             jobs[job_id]["progress"] = 0.0
 
         m = get_model()
 
         with jobs_lock:
-            jobs[job_id]["phase"] = "transcribing"
+            jobs[job_id]["phase"] = "транскрипция"
 
         segments, info = m.transcribe(
             file_path,
@@ -109,12 +110,12 @@ def run_transcription(job_id, file_path, language):
             with jobs_lock:
                 jobs[job_id]["progress"] = progress
 
-        header = "| Time | Text |\n|------|------|\n"
-        markdown = header + "\n".join(result_lines) if result_lines else "_No speech detected._"
+        header = "| Время | Текст |\n|------|------|\n"
+        markdown = header + "\n".join(result_lines) if result_lines else "_Речь не обнаружена._"
 
         with jobs_lock:
             jobs[job_id]["status"] = "done"
-            jobs[job_id]["phase"] = "completed"
+            jobs[job_id]["phase"] = "завершено"
             jobs[job_id]["progress"] = 1.0
             jobs[job_id]["result"] = markdown
 
@@ -139,13 +140,13 @@ def list_tools():
 def call_tool():
     data = request.get_json()
     if not data or "file_path" not in data:
-        return jsonify({"error": "file_path is required"}), 400
+        return jsonify({"error": "Обязательное поле file_path"}), 400
 
     file_path = data["file_path"]
     language = data.get("language", "auto")
 
     if not os.path.exists(file_path):
-        return jsonify({"error": "File not found"}), 404
+        return jsonify({"error": "Файл не найден"}), 404
 
     job_id = str(uuid.uuid4())
 
@@ -202,5 +203,5 @@ def cancel_job(job_id):
 
 
 if __name__ == "__main__":
-    print(f"MCP server running on port {MCP_PORT}")
+    print(f"MCP-сервер запущен на порту {MCP_PORT}")
     app.run(host="0.0.0.0", port=MCP_PORT, debug=False)

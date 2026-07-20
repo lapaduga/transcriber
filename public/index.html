@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Video Transcriber</title>
+    <title>Транскриптор</title>
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%236c5ce7'/%3E%3Cpolygon points='12,8 24,16 12,24' fill='white'/%3E%3C/svg%3E">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -13,8 +13,8 @@
     <div class="app">
         <aside class="sidebar">
             <div class="sidebar-header">
-                <h2>Transcriber</h2>
-                <button id="new-chat-btn" title="New chat">
+                <h2>Транскриптор</h2>
+                <button id="new-chat-btn" title="Новый чат">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
                     </svg>
@@ -24,7 +24,7 @@
             <div class="sidebar-footer">
                 <div class="status" id="status-indicator">
                     <span class="status-dot"></span>
-                    <span class="status-text">Checking...</span>
+                    <span class="status-text">Проверка...</span>
                 </div>
             </div>
         </aside>
@@ -38,22 +38,20 @@
                             <rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
                         </svg>
                     </div>
-                    <h1>Video Transcriber</h1>
-                    <p>Drop a video or audio file, or just type a message.</p>
+                    <h1>Транскриптор</h1>
+                    <p>Перетащите видео или аудиофайл, или просто напишите сообщение.</p>
                 </div>
             </div>
 
             <div class="progress-overlay" id="progress-overlay">
                 <div class="progress-card">
                     <div class="progress-spinner"></div>
-                    <div class="progress-phase" id="progress-phase">Preparing...</div>
+                    <div class="progress-phase" id="progress-phase">Подготовка...</div>
                     <div class="progress-timer" id="progress-timer">0:00</div>
-                    <div class="progress-bar-container">
-                        <div class="progress-bar" id="progress-bar"></div>
-                    </div>
+                    <progress id="progress-bar" max="100" value="0"></progress>
                     <div class="progress-bottom">
                         <span class="progress-percent" id="progress-percent">0%</span>
-                        <button class="cancel-btn" id="cancel-btn">Cancel</button>
+                        <button class="cancel-btn" id="cancel-btn">Отмена</button>
                     </div>
                 </div>
             </div>
@@ -70,14 +68,14 @@
                     </div>
                 </div>
                 <div class="drop-zone" id="drop-zone">
-                    <button id="add-video-btn" title="Add video/audio file">
+                    <button id="add-video-btn" title="Добавить видео/аудиофайл">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <polygon points="23 7 16 12 23 17 23 7"/>
                             <rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
                         </svg>
                     </button>
-                    <textarea id="message-input" placeholder="Upload a file or type a message..." rows="1"></textarea>
-                    <button id="send-btn" title="Send">
+                    <textarea id="message-input" placeholder="Загрузите файл или напишите сообщение..." rows="1"></textarea>
+                    <button id="send-btn" title="Отправить">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <line x1="22" y1="2" x2="11" y2="13"/>
                             <polygon points="22 2 15 22 11 13 2 9 22 2"/>
@@ -93,7 +91,7 @@
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>
                 </svg>
-                <span>System</span>
+                <span>Система</span>
             </div>
             <div class="stats-body">
                 <div class="stat-row">

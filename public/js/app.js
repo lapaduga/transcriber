@@ -52,9 +52,9 @@
         const h = Math.floor(sec / 3600);
         const m = Math.floor((sec % 3600) / 60);
         const s = sec % 60;
-        if (h > 0) return h + 'h ' + m + 'm ' + s + 's';
-        if (m > 0) return m + 'm ' + s + 's';
-        return s + 's';
+        if (h > 0) return h + 'ч ' + m + 'м ' + s + 'с';
+        if (m > 0) return m + 'м ' + s + 'с';
+        return s + 'с';
     }
 
     function checkHealth() {
@@ -63,18 +63,18 @@
             .then(function (data) {
                 if (data.mcp && data.deepseek) {
                     statusDot.className = 'status-dot ok';
-                    statusText.textContent = 'All systems ready';
+                    statusText.textContent = 'Все системы готовы';
                 } else {
                     statusDot.className = 'status-dot';
                     var issues = [];
                     if (!data.mcp) issues.push('MCP');
                     if (!data.deepseek) issues.push('DeepSeek');
-                    statusText.textContent = issues.join(', ') + ' unavailable';
+                    statusText.textContent = issues.join(', ') + ' недоступен';
                 }
             })
             .catch(function () {
                 statusDot.className = 'status-dot';
-                statusText.textContent = 'Server offline';
+                statusText.textContent = 'Сервер не в сети';
             });
     }
 
@@ -91,11 +91,11 @@
             var text = document.createElement('span');
             text.className = 'chat-item-text';
             var firstMsg = chat.messages.find(function (m) { return m.role === 'user'; });
-            text.textContent = firstMsg ? firstMsg.content.slice(0, 40) : 'New chat';
+            text.textContent = firstMsg ? firstMsg.content.slice(0, 40) : 'Новый чат';
 
             var del = document.createElement('button');
             del.className = 'chat-item-delete';
-            del.title = 'Delete chat';
+            del.title = 'Удалить чат';
             del.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
             del.addEventListener('click', function (e) {
                 e.stopPropagation();
@@ -147,33 +147,33 @@
                 '<rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>' +
                 '</svg>' +
                 '</div>' +
-                '<h1>Video Transcriber</h1>' +
-                '<p class="welcome-subtitle">AI-powered transcription assistant</p>' +
+                '<h1>Транскриптор</h1>' +
+                '<p class="welcome-subtitle">AI-ассистент для транскрипции</p>' +
                 '<div class="welcome-features">' +
                 '<div class="welcome-feature">' +
                 '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>' +
-                '<span>Transcribe video &amp; audio files with timestamps</span>' +
+                '<span>Транскрибация видео и аудио с таймкодами</span>' +
                 '</div>' +
                 '<div class="welcome-feature">' +
                 '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>' +
-                '<span>Download results as Markdown files</span>' +
+                '<span>Скачивание результатов как Markdown</span>' +
                 '</div>' +
                 '<div class="welcome-feature">' +
                 '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>' +
-                '<span>Real-time progress tracking</span>' +
+                '<span>Отслеживание прогресса в реальном времени</span>' +
                 '</div>' +
                 '<div class="welcome-feature">' +
                 '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>' +
-                '<span>Chat with AI about your transcriptions</span>' +
+                '<span>Чат с AI о ваших транскрипциях</span>' +
                 '</div>' +
                 '</div>' +
-                '<p class="welcome-hint">Drop a file or type a message to get started</p>' +
+                '<p class="welcome-hint">Перетащите файл или напишите сообщение</p>' +
                 '</div>';
             return;
         }
         chat.messages.forEach(function (msg) {
             addMessageToDOM(msg.role, msg.content);
-            if (msg.role === 'assistant' && msg.content && (msg.content.indexOf('| Time') !== -1 || msg.content.indexOf('| Timestamp') !== -1)) {
+            if (msg.role === 'assistant' && msg.content && (msg.content.indexOf('| Время') !== -1 || msg.content.indexOf('| Time') !== -1)) {
                 appendTranscriptionMeta(msg.content, null);
             }
         });
@@ -253,22 +253,85 @@
 
         var dlBtn = document.createElement('a');
         dlBtn.className = 'md-download';
-        dlBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Download .md';
+        dlBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Скачать .md';
         dlBtn.onclick = function () {
             var blob = new Blob([content], { type: 'text/markdown' });
             var url = URL.createObjectURL(blob);
             var a = document.createElement('a');
             a.href = url;
-            a.download = 'transcription.md';
+            a.download = 'транскрипция.md';
             a.click();
             URL.revokeObjectURL(url);
         };
         meta.appendChild(dlBtn);
 
+        var sumBtn = document.createElement('button');
+        sumBtn.className = 'md-download';
+        sumBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg> Саммари';
+        sumBtn.onclick = function () {
+            sumBtn.disabled = true;
+            sumBtn.textContent = 'Создание саммари...';
+            var startTime = Date.now();
+            fetch('/api/summarize', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text: content, language: 'en' })
+            })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                var elapsed = Math.round((Date.now() - startTime) / 1000);
+                if (data.error) {
+                    addMessageToDOM('assistant', 'Ошибка саммари: ' + data.error);
+                } else {
+                    addMessageToDOM('assistant', '**Саммари:**\n\n' + data.summary);
+                    appendSummaryMeta(data.summary, elapsed);
+                }
+                scrollToBottom();
+                sumBtn.remove();
+            })
+            .catch(function (e) {
+                addMessageToDOM('assistant', 'Ошибка саммари: ' + e.message);
+                scrollToBottom();
+                sumBtn.remove();
+            });
+        };
+        meta.appendChild(sumBtn);
+
         if (duration) {
             var label = document.createElement('span');
             label.className = 'duration-label';
-            label.textContent = 'Transcription took ' + duration;
+            label.textContent = 'Транскрипция заняла ' + duration;
+            meta.appendChild(label);
+        }
+
+        lastMsg.appendChild(meta);
+    }
+
+    function appendSummaryMeta(summary, elapsed) {
+        var lastMsg = messagesEl.querySelector('.message-assistant:last-child .message-content');
+        if (!lastMsg) return;
+
+        var meta = document.createElement('div');
+        meta.className = 'transcription-meta';
+
+        var dlBtn = document.createElement('a');
+        dlBtn.className = 'md-download';
+        dlBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Скачать .md';
+        dlBtn.onclick = function () {
+            var blob = new Blob([summary], { type: 'text/markdown' });
+            var url = URL.createObjectURL(blob);
+            var a = document.createElement('a');
+            a.href = url;
+            a.download = 'саммари.md';
+            a.click();
+            URL.revokeObjectURL(url);
+        };
+        meta.appendChild(dlBtn);
+
+        if (elapsed !== undefined && elapsed !== null) {
+            var label = document.createElement('span');
+            label.className = 'duration-label';
+            label.textContent = 'Саммари заняло ' + formatDuration(elapsed);
             meta.appendChild(label);
         }
 
@@ -296,15 +359,15 @@
         var resp = await fetch('/api/upload', { method: 'POST', body: formData });
         if (!resp.ok) {
             var err = await resp.json();
-            throw new Error(err.error || 'Upload failed');
+            throw new Error(err.error || 'Ошибка загрузки');
         }
         return await resp.json();
     }
 
     function showProgress(jobId) {
         progressOverlay.classList.add('active');
-        progressBar.style.width = '0%';
-        progressPhase.textContent = 'Starting...';
+        progressBar.value = 0;
+        progressPhase.textContent = 'Запуск...';
         progressPercent.textContent = '0%';
         progressTimer.textContent = '0:00';
         activeJobId = jobId;
@@ -317,18 +380,18 @@
         evtSource.onmessage = function (e) {
             var data = JSON.parse(e.data);
             var pct = Math.round((data.progress || 0) * 100);
-            progressBar.style.width = pct + '%';
+            progressBar.value = pct;
             progressPercent.textContent = pct + '%';
-            progressPhase.textContent = capitalize(data.phase || 'Processing...');
+            progressPhase.textContent = capitalize(data.phase || 'Обработка...');
             progressTimer.textContent = formatElapsed(data.elapsed || 0);
 
             if (data.status === 'done') {
                 evtSource.close();
                 activeEventSource = null;
                 activeJobId = null;
-                progressBar.style.width = '100%';
+                progressBar.value = 100;
                 progressPercent.textContent = '100%';
-                progressPhase.textContent = 'Done!';
+                progressPhase.textContent = 'Готово!';
 
                 if (data.message) {
                     addMessageToDOM('assistant', data.message);
@@ -350,7 +413,7 @@
                 evtSource.close();
                 activeEventSource = null;
                 activeJobId = null;
-                var msg = data.status === 'cancelled' ? 'Transcription cancelled.' : (data.message || data.error || 'Unknown error');
+                var msg = data.status === 'cancelled' ? 'Транскрипция отменена.' : (data.message || data.error || 'Неизвестная ошибка');
                 addMessageToDOM('assistant', msg);
                 var chat2 = chats[currentChatId];
                 if (chat2) {
@@ -396,13 +459,13 @@
     function handleFile(file) {
         if (!file) return;
         if (file.size > 500 * 1024 * 1024) {
-            alert('File too large. Max 500 MB.');
+            alert('Файл слишком большой. Максимум 500 МБ.');
             return;
         }
         selectedFile = file;
         fileName.textContent = file.name;
         filePreview.style.display = 'block';
-        inputEl.placeholder = 'Press Enter or click Send to transcribe...';
+        inputEl.placeholder = 'Нажмите Enter или кнопку Отправить для транскрипции...';
         inputEl.focus();
     }
 
@@ -419,7 +482,7 @@
         if (selectedFile && text) {
             displayMessage = text;
         } else if (selectedFile && !text) {
-            displayMessage = 'Transcribe file: ' + selectedFile.name;
+            displayMessage = 'Транскрибировать файл: ' + selectedFile.name;
         }
 
         chats[currentChatId].messages.push({ role: 'user', content: displayMessage });
@@ -439,7 +502,7 @@
                 var result = await uploadFile(selectedFile);
                 filePath = result.path;
             } catch (e) {
-                addMessageToDOM('assistant', 'Upload error: ' + e.message);
+                addMessageToDOM('assistant', 'Ошибка загрузки: ' + e.message);
                 sending = false;
                 sendBtn.disabled = false;
                 return;
@@ -468,7 +531,7 @@
             if (thinkingEl) thinkingEl.remove();
 
             if (data.error) {
-                addMessageToDOM('assistant', 'Error: ' + data.error);
+                addMessageToDOM('assistant', 'Ошибка: ' + data.error);
                 sending = false;
                 sendBtn.disabled = false;
             } else if (data.job_id) {
@@ -485,7 +548,7 @@
             }
         } catch (e) {
             if (thinkingEl) thinkingEl.remove();
-            addMessageToDOM('assistant', 'Connection error: ' + e.message);
+            addMessageToDOM('assistant', 'Ошибка соединения: ' + e.message);
             sending = false;
             sendBtn.disabled = false;
         }
@@ -509,7 +572,7 @@
 
     fileRemove.addEventListener('click', function () {
         clearFile();
-        inputEl.placeholder = 'Upload a file or type a message...';
+        inputEl.placeholder = 'Загрузите файл или напишите сообщение...';
     });
 
     fileInput.addEventListener('change', function () {
@@ -574,5 +637,6 @@
         switchChat(latest);
     } else {
         renderChatList();
+        renderMessages();
     }
 })();

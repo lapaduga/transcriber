@@ -1,17 +1,19 @@
-import os
-import sys
-import uuid
-import time
 import json
+import os
 import re
 import signal
 import subprocess
+import sys
 import threading
+import time
+import uuid
+
 import httpx
 import psutil
-from flask import Flask, request, jsonify, Response, send_from_directory, stream_with_context
-from flask_cors import CORS
 from dotenv import load_dotenv
+from flask_cors import CORS
+
+from flask import Flask, Response, jsonify, request, send_from_directory, stream_with_context
 
 load_dotenv()
 
@@ -28,7 +30,7 @@ def start_mcp_server():
         stderr=sys.stderr,
     )
     time.sleep(1)
-    print(f"MCP server started (PID {mcp_process.pid})")
+    print(f"MCP-сервер запущен (PID {mcp_process.pid})")
 
 
 def cleanup(signum=None, frame=None):
@@ -37,13 +39,13 @@ def cleanup(signum=None, frame=None):
         return
     _cleaned = True
     if mcp_process and mcp_process.poll() is None:
-        print("\nStopping MCP server...")
+        print("\nОстановка MCP-сервера...")
         mcp_process.terminate()
         try:
             mcp_process.wait(timeout=5)
         except subprocess.TimeoutExpired:
             mcp_process.kill()
-        print("Done.")
+        print("Готово.")
 
 
 signal.signal(signal.SIGINT, lambda s, f: sys.exit(0))
@@ -78,17 +80,17 @@ TRANSCRIBE_TOOL = {
     "type": "function",
     "function": {
         "name": "transcribe_video",
-        "description": "Transcribe audio or video file to text with timestamps.",
+        "description": "Транскрибировать аудио или видеофайл в текст с таймкодами.",
         "parameters": {
             "type": "object",
             "properties": {
                 "file_path": {
                     "type": "string",
-                    "description": "Absolute path to the audio or video file",
+                    "description": "Абсолютный путь к аудио или видеофайлу",
                 },
                 "language": {
                     "type": "string",
-                    "description": "Language code (auto, ru, en, etc.)",
+                    "description": "Код языка (auto, ru, en и т.д.)",
                     "default": "auto",
                 },
             },
@@ -97,12 +99,35 @@ TRANSCRIBE_TOOL = {
     },
 }
 
+SUMMARIZE_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "summarize_text",
+        "description": "Сделать краткую саммари транскрипции или длинного текста.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "text": {
+                    "type": "string",
+                    "description": "Текст транскрипции или длинный текст для саммари",
+                },
+                "language": {
+                    "type": "string",
+                    "description": "Код языка для саммари (en, ru и т.д.)",
+                    "default": "en",
+                },
+            },
+            "required": ["text"],
+        },
+    },
+}
+
 SYSTEM_PROMPT = (
-    "You are a video transcription assistant. You help users transcribe audio and video files. "
-    "When a user provides a file path or uploads a file, use the transcribe_video tool to transcribe it. "
-    "After receiving the transcription result (a Markdown table with timestamps and text), format it nicely. "
-    "If the user asks a general question, answer it helpfully. "
-    "Always respond in the language the user writes in."
+    "Ты — ассистент для транскрипции видео. Ты помогаешь пользователям транскрибировать аудио и видеофайлы. "
+    "Когда пользователь указывает путь к файлу или загружает файл, используй инструмент transcribe_video для транскрипции. "
+    "После получения результата транскрипции (таблица Markdown с таймкодами и текстом), оформи его красиво. "
+    "Если пользователь задает общий вопрос, ответь полезно. "
+    "Всегда отвечай на языке, на котором пишет пользователь."
 )
 
 
@@ -166,7 +191,7 @@ def run_transcription_stream(job_id, conversation_id, user_message, file_path, l
     try:
         with stream_lock:
             stream_results[job_id]["status"] = "running"
-            stream_results[job_id]["phase"] = "Loading model..."
+            stream_results[job_id]["phase"] = "Загрузка модели..."
             stream_results[job_id]["start_time"] = time.time()
 
         mcp_resp = httpx.post(f"{MCP_URL}/call", json={"file_path": file_path, "language": language}, timeout=10)
@@ -188,7 +213,7 @@ def run_transcription_stream(job_id, conversation_id, user_message, file_path, l
 
                 with stream_lock:
                     stream_results[job_id]["progress"] = job_data.get("progress", 0)
-                    stream_results[job_id]["phase"] = job_data.get("phase", "Processing...")
+                    stream_results[job_id]["phase"] = job_data.get("phase", "Обработка...")
 
                 if job_data["status"] in ("done", "error"):
                     break
@@ -198,17 +223,17 @@ def run_transcription_stream(job_id, conversation_id, user_message, file_path, l
             time.sleep(1)
 
         if job_data["status"] == "error":
-            error_msg = job_data.get("result", "Unknown transcription error")
+            error_msg = job_data.get("result", "Неизвестная ошибка транскрипции")
             with stream_lock:
                 stream_results[job_id]["status"] = "error"
-                stream_results[job_id]["message"] = f"Transcription failed: {error_msg}"
+                stream_results[job_id]["message"] = f"Ошибка транскрипции: {error_msg}"
             _delete_file(file_path)
             return
 
-        transcription = job_data.get("result", "No result")
+        transcription = job_data.get("result", "Нет результата")
 
         with stream_lock:
-            stream_results[job_id]["phase"] = "Formatting..."
+            stream_results[job_id]["phase"] = "Форматирование..."
             stream_results[job_id]["progress"] = 0.95
 
         conv = conversations.get(conversation_id, [])
@@ -241,7 +266,7 @@ def run_transcription_stream(job_id, conversation_id, user_message, file_path, l
         with stream_lock:
             stream_results[job_id]["status"] = "done"
             stream_results[job_id]["progress"] = 1.0
-            stream_results[job_id]["phase"] = "Done"
+            stream_results[job_id]["phase"] = "Готово"
             stream_results[job_id]["message"] = assistant_msg
 
         _delete_file(file_path)
@@ -249,7 +274,7 @@ def run_transcription_stream(job_id, conversation_id, user_message, file_path, l
     except Exception as e:
         with stream_lock:
             stream_results[job_id]["status"] = "error"
-            stream_results[job_id]["message"] = f"Error: {e}"
+            stream_results[job_id]["message"] = f"Ошибка: {e}"
         _delete_file(file_path)
 
 
@@ -302,21 +327,21 @@ def stats():
 @app.route("/api/upload", methods=["POST"])
 def upload():
     if "file" not in request.files:
-        return jsonify({"error": "No file provided"}), 400
+        return jsonify({"error": "Файл не предоставлен"}), 400
 
     file = request.files["file"]
     if not file.filename:
-        return jsonify({"error": "No file selected"}), 400
+        return jsonify({"error": "Файл не выбран"}), 400
 
     if not allowed_file(file.filename):
-        return jsonify({"error": f"File type not allowed"}), 400
+        return jsonify({"error": "Тип файла не поддерживается"}), 400
 
     file.seek(0, 2)
     size = file.tell()
     file.seek(0)
 
     if size > MAX_FILE_SIZE:
-        return jsonify({"error": f"File too large (max {MAX_FILE_SIZE // (1024 * 1024)} MB)"}), 400
+        return jsonify({"error": f"Файл слишком большой (максимум {MAX_FILE_SIZE // (1024 * 1024)} МБ)"}), 400
 
     file_id = str(uuid.uuid4())
     safe_name = sanitize_filename(file.filename)
@@ -335,7 +360,7 @@ def sse_stream(job_id):
                 data = stream_results.get(job_id)
 
             if not data:
-                yield f"data: {json.dumps({'status': 'error', 'message': 'Job not found'})}\n\n"
+                yield f"data: {json.dumps({'status': 'error', 'message': 'Задача не найдена'})}\n\n"
                 break
 
             elapsed = time.time() - data.get("start_time", time.time()) if data.get("start_time") else 0
@@ -369,15 +394,15 @@ def cancel_job(job_id):
     with stream_lock:
         data = stream_results.get(job_id)
         if not data:
-            return jsonify({"error": "Job not found"}), 404
+            return jsonify({"error": "Задача не найдена"}), 404
 
         if data["status"] in ("done", "error", "cancelled"):
             return jsonify({"ok": True, "status": data["status"]})
 
         data["cancelled"] = True
         data["status"] = "cancelled"
-        data["phase"] = "Cancelled"
-        data["message"] = "Transcription cancelled."
+        data["phase"] = "Отменено"
+        data["message"] = "Транскрипция отменена."
 
         mcp_job_id = data.get("mcp_job_id")
         file_path = data.get("file_path")
@@ -393,7 +418,7 @@ def cancel_job(job_id):
 
     if conversation_id := data.get("conversation_id"):
         if conversation_id in conversations:
-            conversations[conversation_id].append({"role": "assistant", "content": "Transcription cancelled."})
+            conversations[conversation_id].append({"role": "assistant", "content": "Транскрипция отменена."})
 
     return jsonify({"ok": True})
 
@@ -402,7 +427,7 @@ def cancel_job(job_id):
 def chat():
     data = request.get_json()
     if not data or "message" not in data:
-        return jsonify({"error": "message is required"}), 400
+        return jsonify({"error": "Обязательное поле message"}), 400
 
     user_message = data["message"]
     conversation_id = data.get("conversation_id", str(uuid.uuid4()))
@@ -416,14 +441,14 @@ def chat():
     if file_path:
         if not os.path.exists(file_path):
             conversations[conversation_id].pop()
-            return jsonify({"error": "File not found"}), 400
+            return jsonify({"error": "Файл не найден"}), 400
 
         job_id = str(uuid.uuid4())
         with stream_lock:
             stream_results[job_id] = {
                 "status": "starting",
                 "progress": 0.0,
-                "phase": "Initializing...",
+                "phase": "Инициализация...",
                 "message": None,
                 "error": None,
                 "mcp_job_id": None,
@@ -445,17 +470,41 @@ def chat():
     messages = [{"role": "system", "content": SYSTEM_PROMPT}] + conversations[conversation_id][-20:]
 
     try:
-        message = _deepseek(messages, tools=[TRANSCRIBE_TOOL])
+        message = _deepseek(messages, tools=[TRANSCRIBE_TOOL, SUMMARIZE_TOOL])
     except httpx.HTTPStatusError as e:
         conversations[conversation_id].pop()
-        return jsonify({"error": f"DeepSeek API error: {e.response.status_code}"}), 502
+        return jsonify({"error": f"Ошибка API DeepSeek: {e.response.status_code}"}), 502
     except Exception as e:
         conversations[conversation_id].pop()
-        return jsonify({"error": f"DeepSeek connection error: {e}"}), 502
+        return jsonify({"error": f"Ошибка подключения к DeepSeek: {e}"}), 502
 
     if message.get("tool_calls"):
         tc = message["tool_calls"][0]
         args = json.loads(tc["function"]["arguments"]) if isinstance(tc["function"]["arguments"], str) else tc["function"]["arguments"]
+        tool_name = tc["function"]["name"]
+
+        if tool_name == "summarize_text":
+            text = args.get("text", "").strip()
+            language = args.get("language", "en")
+            if not text:
+                assistant_msg = "Текст для саммари не предоставлен."
+                conversations[conversation_id].append({"role": "assistant", "content": assistant_msg})
+                return jsonify({"message": assistant_msg, "conversation_id": conversation_id})
+
+            messages_summary = [
+                {"role": "system", "content": f"Сделай краткую саммари следующего текста на языке {language}. "
+                 "Верни простой текст, без таблиц Markdown."},
+                {"role": "user", "content": text},
+            ]
+            try:
+                reply = _deepseek(messages_summary)
+                assistant_msg = reply.get("content", "Не удалось создать саммари.")
+            except Exception as e:
+                assistant_msg = f"Ошибка саммари: {e}"
+
+            conversations[conversation_id].append({"role": "assistant", "content": assistant_msg})
+            return jsonify({"message": assistant_msg, "conversation_id": conversation_id})
+
         extracted = args.get("file_path")
         if extracted and os.path.exists(extracted):
             conversations[conversation_id].pop()
@@ -464,7 +513,7 @@ def chat():
                 stream_results[job_id] = {
                     "status": "starting",
                     "progress": 0.0,
-                    "phase": "Initializing...",
+                    "phase": "Инициализация...",
                     "message": None,
                     "error": None,
                     "mcp_job_id": None,
@@ -481,7 +530,7 @@ def chat():
             thread.start()
             return jsonify({"job_id": job_id, "conversation_id": conversation_id})
 
-        assistant_msg = "Please provide a valid file path or upload a file."
+        assistant_msg = "Укажите путь к файлу или загрузите файл."
         conversations[conversation_id].append({"role": "assistant", "content": assistant_msg})
         return jsonify({"message": assistant_msg, "conversation_id": conversation_id})
 
@@ -490,7 +539,36 @@ def chat():
     return jsonify({"message": assistant_msg, "conversation_id": conversation_id})
 
 
+@app.route("/api/summarize", methods=["POST"])
+def summarize():
+    data = request.get_json()
+    if not data or "text" not in data:
+        return jsonify({"error": "Обязательное поле text"}), 400
+
+    text = data["text"].strip()
+    if not text:
+        return jsonify({"error": "Текст не должен быть пустым"}), 400
+
+    language = data.get("language", "en")
+
+    messages = [
+        {"role": "system", "content": f"Сделай краткую саммари следующей транскрипции на языке {language}. "
+         "Верни простой текст, без таблиц Markdown."},
+        {"role": "user", "content": text},
+    ]
+
+    try:
+        reply = _deepseek(messages)
+    except httpx.HTTPStatusError as e:
+        return jsonify({"error": f"Ошибка API DeepSeek: {e.response.status_code}"}), 502
+    except Exception as e:
+        return jsonify({"error": f"Ошибка подключения к DeepSeek: {e}"}), 502
+
+    summary = reply.get("content", "")
+    return jsonify({"summary": summary, "language": language})
+
+
 if __name__ == "__main__":
     start_mcp_server()
-    print(f"Server running on http://127.0.0.1:{PORT}")
+    print(f"Сервер запущен на http://127.0.0.1:{PORT}")
     app.run(host="0.0.0.0", port=PORT, debug=False, threaded=True)
