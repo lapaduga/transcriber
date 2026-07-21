@@ -18,6 +18,7 @@ from flask import Flask, Response, jsonify, request, send_from_directory, stream
 load_dotenv()
 
 mcp_process = None
+vosk_process = None
 _cleaned = False
 
 
@@ -33,8 +34,20 @@ def start_mcp_server():
     print(f"MCP-сервер запущен (PID {mcp_process.pid})")
 
 
+def start_vosk_server():
+    global vosk_process
+    vosk_script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "vosk_server.py")
+    vosk_process = subprocess.Popen(
+        [sys.executable, vosk_script],
+        stdout=sys.stdout,
+        stderr=sys.stderr,
+    )
+    time.sleep(1)
+    print(f"Vosk-сервер запущен (PID {vosk_process.pid})")
+
+
 def cleanup(signum=None, frame=None):
-    global mcp_process, _cleaned
+    global mcp_process, vosk_process, _cleaned
     if _cleaned:
         return
     _cleaned = True
@@ -45,7 +58,14 @@ def cleanup(signum=None, frame=None):
             mcp_process.wait(timeout=5)
         except subprocess.TimeoutExpired:
             mcp_process.kill()
-        print("Готово.")
+    if vosk_process and vosk_process.poll() is None:
+        print("Остановка Vosk-сервера...")
+        vosk_process.terminate()
+        try:
+            vosk_process.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            vosk_process.kill()
+    print("Готово.")
 
 
 signal.signal(signal.SIGINT, lambda s, f: sys.exit(0))
@@ -60,6 +80,8 @@ CORS(app)
 PORT = int(os.getenv("PORT", 3000))
 MCP_PORT = int(os.getenv("MCP_PORT", 3001))
 MCP_URL = f"http://127.0.0.1:{MCP_PORT}"
+VOSK_PORT = int(os.getenv("VOSK_PORT", 2700))
+VOSK_HEALTH_URL = f"http://127.0.0.1:{VOSK_PORT + 1}/health"
 DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY", "")
 DEEPSEEK_URL = "https://api.deepseek.com/v1/chat/completions"
 
@@ -291,13 +313,19 @@ def static_files(path):
 @app.route("/api/health")
 def health():
     mcp_ok = False
+    vosk_ok = False
     deepseek_ok = bool(DEEPSEEK_API_KEY and DEEPSEEK_API_KEY != "your_deepseek_api_key_here")
     try:
         r = httpx.get(f"{MCP_URL}/tools", timeout=3)
         mcp_ok = r.status_code == 200
     except Exception:
         pass
-    return jsonify({"ok": True, "mcp": mcp_ok, "deepseek": deepseek_ok})
+    try:
+        r = httpx.get(VOSK_HEALTH_URL, timeout=3)
+        vosk_ok = r.status_code == 200
+    except Exception:
+        pass
+    return jsonify({"ok": True, "mcp": mcp_ok, "vosk": vosk_ok, "deepseek": deepseek_ok})
 
 
 @app.route("/api/stats")
@@ -570,5 +598,6 @@ def summarize():
 
 if __name__ == "__main__":
     start_mcp_server()
+    start_vosk_server()
     print(f"Сервер запущен на http://127.0.0.1:{PORT}")
     app.run(host="0.0.0.0", port=PORT, debug=False, threaded=True)

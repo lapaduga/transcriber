@@ -25,6 +25,9 @@
     const gpuRow = document.getElementById('gpu-row');
     const gpuBar = document.getElementById('gpu-bar');
     const gpuVal = document.getElementById('gpu-val');
+    const voicePartial = document.getElementById('voice-partial');
+    const voiceIndicator = document.getElementById('voice-indicator');
+    const voskLoading = document.getElementById('vosk-loading');
 
     let chats = JSON.parse(localStorage.getItem('transcriber_chats') || '{}');
     let currentChatId = null;
@@ -33,6 +36,10 @@
     let sending = false;
     let activeEventSource = null;
     let activeJobId = null;
+    let isRecording = false;
+    let voiceRecorder = new VoiceRecorder();
+    let voskReady = false;
+    let spaceHeld = false;
 
     function saveChats() {
         localStorage.setItem('transcriber_chats', JSON.stringify(chats));
@@ -61,9 +68,14 @@
         fetch('/api/health')
             .then(function (r) { return r.json(); })
             .then(function (data) {
-                if (data.mcp && data.deepseek) {
+                voskReady = !!data.vosk;
+                voskLoading.style.display = data.vosk ? 'none' : 'block';
+                if (data.mcp && data.deepseek && data.vosk) {
                     statusDot.className = 'status-dot ok';
                     statusText.textContent = 'Все системы готовы';
+                } else if (data.mcp && data.deepseek) {
+                    statusDot.className = 'status-dot';
+                    statusText.textContent = 'MCP + DeepSeek готовы';
                 } else {
                     statusDot.className = 'status-dot';
                     var issues = [];
@@ -166,8 +178,12 @@
                 '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>' +
                 '<span>Чат с AI о ваших транскрипциях</span>' +
                 '</div>' +
+                '<div class="welcome-feature">' +
+                '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/></svg>' +
+                '<span>Голосовой ввод: удерживай Пробел для записи</span>' +
                 '</div>' +
-                '<p class="welcome-hint">Перетащите файл или напишите сообщение</p>' +
+                '</div>' +
+                '<p class="welcome-hint">Перетащите файл, напишите сообщение или удерживайте Пробел</p>' +
                 '</div>';
             return;
         }
@@ -469,8 +485,8 @@
         inputEl.focus();
     }
 
-    async function sendMessage() {
-        var text = inputEl.value.trim();
+    async function sendMessage(text) {
+        if (!text) text = inputEl.value.trim();
         if (!text && !selectedFile) return;
         if (sending) return;
         sending = true;
@@ -566,7 +582,7 @@
         }
     });
 
-    sendBtn.addEventListener('click', sendMessage);
+    sendBtn.addEventListener('click', function () { sendMessage(); });
     cancelBtn.addEventListener('click', cancelTranscription);
     newChatBtn.addEventListener('click', newChat);
 
@@ -608,7 +624,7 @@
     });
 
     checkHealth();
-    setInterval(checkHealth, 30000);
+    setInterval(checkHealth, 5000);
 
     function updateStats() {
         fetch('/api/stats')
@@ -639,4 +655,70 @@
         renderChatList();
         renderMessages();
     }
+
+    function startRecording() {
+        if (sending || isRecording) return;
+        isRecording = true;
+        voiceIndicator.classList.add('active');
+        voicePartial.textContent = '';
+        voicePartial.style.display = 'block';
+
+        voiceRecorder.onPartial = function (text) {
+            voicePartial.textContent = text;
+        };
+
+        voiceRecorder.onError = function (err) {
+            stopRecording();
+            addMessageToDOM('assistant', 'Ошибка голосового ввода: ' + err.message);
+            scrollToBottom();
+        };
+
+        voiceRecorder.start().catch(function (err) {
+            isRecording = false;
+            voiceIndicator.classList.remove('active');
+            voicePartial.style.display = 'none';
+            addMessageToDOM('assistant', 'Ошибка голосового ввода: ' + err.message);
+            scrollToBottom();
+        });
+    }
+
+    function stopRecording() {
+        if (!isRecording) return;
+        isRecording = false;
+        voiceIndicator.classList.remove('active');
+
+        voiceRecorder.stop().then(function (text) {
+            voicePartial.style.display = 'none';
+            voicePartial.textContent = '';
+            if (text && text.trim()) {
+                sendMessage(text.trim());
+            }
+        }).catch(function () {
+            voicePartial.style.display = 'none';
+            voicePartial.textContent = '';
+        });
+    }
+
+    document.addEventListener('keydown', function (e) {
+        if (e.code !== 'Space' || e.repeat) return;
+
+        var active = document.activeElement;
+        var inputFocused = active === inputEl || active.tagName === 'TEXTAREA' || active.tagName === 'INPUT';
+
+        if (inputFocused) return;
+
+        e.preventDefault();
+        if (!spaceHeld) {
+            spaceHeld = true;
+            startRecording();
+        }
+    });
+
+    document.addEventListener('keyup', function (e) {
+        if (e.code !== 'Space') return;
+        if (spaceHeld) {
+            spaceHeld = false;
+            stopRecording();
+        }
+    });
 })();
