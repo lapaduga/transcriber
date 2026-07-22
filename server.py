@@ -1,3 +1,4 @@
+import atexit
 import json
 import os
 import re
@@ -8,6 +9,7 @@ import threading
 import time
 import uuid
 
+import edge_tts
 import httpx
 import psutil
 from dotenv import load_dotenv
@@ -70,7 +72,6 @@ def cleanup(signum=None, frame=None):
 
 signal.signal(signal.SIGINT, lambda s, f: sys.exit(0))
 signal.signal(signal.SIGTERM, lambda s, f: sys.exit(0))
-import atexit
 
 atexit.register(cleanup)
 
@@ -84,6 +85,8 @@ VOSK_PORT = int(os.getenv("VOSK_PORT", 2700))
 VOSK_HEALTH_URL = f"http://127.0.0.1:{VOSK_PORT + 1}/health"
 DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY", "")
 DEEPSEEK_URL = "https://api.deepseek.com/v1/chat/completions"
+TTS_VOICE = os.getenv("TTS_VOICE", "ru-RU-DmitryNeural")
+TTS_RATE = os.getenv("TTS_RATE", "+20%")
 
 UPLOAD_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "uploads")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
@@ -162,6 +165,23 @@ def sanitize_filename(name):
 
 def allowed_file(filename):
     return os.path.splitext(filename)[1].lower() in ALLOWED_EXTENSIONS
+
+
+def _sanitize_for_tts(text):
+    text = re.sub(r"```[\s\S]*?```", "", text)
+    text = re.sub(r"`[^`]+`", "", text)
+    text = re.sub(r"\*\*([^*]+)\*\*", r"\1", text)
+    text = re.sub(r"\*([^*]+)\*", r"\1", text)
+    text = re.sub(r"__([^_]+)__", r"\1", text)
+    text = re.sub(r"_([^_]+)_", r"\1", text)
+    text = re.sub(r"~~([^~]+)~~", r"\1", text)
+    text = re.sub(r"\[([^\]]+)\]\([^)]+\)", r"\1", text)
+    text = re.sub(r"^\|.*\|$", "", text, flags=re.MULTILINE)
+    text = re.sub(r"^[|\-:\s]+$", "", text, flags=re.MULTILINE)
+    text = re.sub(r"\|{2,}", " ", text)
+    text = re.sub(r"[#>!]", "", text, flags=re.MULTILINE)
+    text = re.sub(r"\s+", " ", text)
+    return text.strip()
 
 
 def _deepseek(messages, tools=None):
@@ -594,6 +614,39 @@ def summarize():
 
     summary = reply.get("content", "")
     return jsonify({"summary": summary, "language": language})
+
+
+@app.route("/api/tts", methods=["POST"])
+def tts():
+    data = request.get_json()
+    if not data or "text" not in data:
+        return jsonify({"error": "Обязательное поле text"}), 400
+
+    text = data["text"].strip()
+    if not text:
+        return jsonify({"error": "Текст не должен быть пустым"}), 400
+
+    voice = data.get("voice", TTS_VOICE)
+    rate = data.get("rate", TTS_RATE)
+    clean = _sanitize_for_tts(text)
+
+    try:
+        communicate = edge_tts.Communicate(clean, voice, rate=rate)
+        audio_parts = []
+        for chunk in communicate.stream_sync():
+            if chunk["type"] == "audio":
+                audio_parts.append(chunk["data"])
+        audio_data = b"".join(audio_parts)
+        if not audio_data:
+            return jsonify({"error": "TTS не вернул аудио"}), 500
+    except Exception as e:
+        return jsonify({"error": f"TTS ошибка: {e}"}), 500
+
+    return Response(
+        audio_data,
+        mimetype="audio/mpeg",
+        headers={"Cache-Control": "no-cache", "Content-Disposition": "inline"},
+    )
 
 
 if __name__ == "__main__":

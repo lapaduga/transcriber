@@ -797,6 +797,92 @@ progress::-moz-progress-bar {
     opacity: 0.5;
 }
 
+/* TTS Controls */
+.tts-toggle {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: all 0.2s;
+}
+
+.tts-toggle:hover {
+    color: var(--accent);
+    border-color: var(--accent);
+    background: var(--accent-glow);
+}
+
+.tts-toggle.active {
+    color: var(--accent);
+    border-color: var(--accent);
+    background: var(--accent-glow);
+}
+
+.tts-toggle:not(.active) {
+    color: var(--text-secondary);
+    opacity: 0.5;
+}
+
+.tts-toggle:not(.active):hover {
+    opacity: 1;
+}
+
+.tts-player-bar {
+    position: fixed;
+    bottom: 100px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 500;
+    animation: fadeIn 0.15s ease;
+}
+
+.tts-player-inner {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: rgba(108, 92, 231, 0.95);
+    color: white;
+    padding: 10px 20px;
+    border-radius: 24px;
+    font-size: 14px;
+    font-weight: 500;
+    box-shadow: 0 4px 20px rgba(108, 92, 231, 0.4);
+}
+
+.tts-player-dot {
+    width: 10px;
+    height: 10px;
+    background: white;
+    border-radius: 50%;
+    animation: micPulseDot 1s ease-in-out infinite;
+}
+
+.tts-stop-btn {
+    background: rgba(255, 255, 255, 0.2);
+    border: none;
+    color: white;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s;
+    margin-left: 4px;
+}
+
+.tts-stop-btn:hover {
+    background: rgba(255, 255, 255, 0.35);
+}
+
 /* Stats Panel */
 .stats-panel {
     width: 220px;

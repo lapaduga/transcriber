@@ -28,6 +28,10 @@
     const voicePartial = document.getElementById('voice-partial');
     const voiceIndicator = document.getElementById('voice-indicator');
     const voskLoading = document.getElementById('vosk-loading');
+    const ttsToggle = document.getElementById('tts-toggle');
+    const ttsStopBtn = document.getElementById('tts-stop-btn');
+    const ttsPlayerBar = document.getElementById('tts-player-bar');
+    const ttsPlayerLabel = document.getElementById('tts-player-label');
 
     let chats = JSON.parse(localStorage.getItem('transcriber_chats') || '{}');
     let currentChatId = null;
@@ -40,6 +44,22 @@
     let voiceRecorder = new VoiceRecorder();
     let voskReady = false;
     let spaceHeld = false;
+
+    let ttsPlayer = new TTSPlayer();
+    ttsPlayer.onStateChange = function (state) {
+        if (state === 'loading') {
+            ttsPlayerBar.style.display = '';
+            ttsPlayerLabel.textContent = 'Никитос думает...';
+        } else if (state === 'playing') {
+            ttsPlayerBar.style.display = '';
+            ttsPlayerLabel.textContent = 'Никитос говорит...';
+        } else if (state === 'waiting') {
+            ttsPlayerBar.style.display = '';
+            ttsPlayerLabel.textContent = 'Никитос готов (нажмите для воспроизведения)';
+        } else {
+            ttsPlayerBar.style.display = 'none';
+        }
+    };
 
     function saveChats() {
         localStorage.setItem('transcriber_chats', JSON.stringify(chats));
@@ -369,6 +389,15 @@
         messagesEl.scrollTop = messagesEl.scrollHeight;
     }
 
+    function playAssistantTTS(text) {
+        if (!ttsPlayer.enabled || !text) return;
+        ttsPlayer.speak(text);
+    }
+
+    function stopTTS() {
+        ttsPlayer.stop();
+    }
+
     async function uploadFile(file) {
         var formData = new FormData();
         formData.append('file', file);
@@ -412,6 +441,7 @@
                 if (data.message) {
                     addMessageToDOM('assistant', data.message);
                     appendTranscriptionMeta(data.message, data.duration);
+                    playAssistantTTS(data.message);
 
                     var chat = chats[currentChatId];
                     if (chat) {
@@ -554,6 +584,7 @@
                 showProgress(data.job_id);
             } else {
                 addMessageToDOM('assistant', data.message);
+                playAssistantTTS(data.message);
                 chats[currentChatId].messages.push({ role: 'assistant', content: data.message });
                 chats[currentChatId].updatedAt = Date.now();
                 saveChats();
@@ -585,6 +616,14 @@
     sendBtn.addEventListener('click', function () { sendMessage(); });
     cancelBtn.addEventListener('click', cancelTranscription);
     newChatBtn.addEventListener('click', newChat);
+    ttsStopBtn.addEventListener('click', stopTTS);
+    ttsToggle.addEventListener('click', function () {
+        var enabled = ttsPlayer.toggle();
+        ttsToggle.classList.toggle('active', enabled);
+        if (!enabled) {
+            ttsPlayerBar.style.display = 'none';
+        }
+    });
 
     fileRemove.addEventListener('click', function () {
         clearFile();
@@ -658,6 +697,7 @@
 
     function startRecording() {
         if (sending || isRecording) return;
+        stopTTS();
         isRecording = true;
         voiceIndicator.classList.add('active');
         voicePartial.textContent = '';

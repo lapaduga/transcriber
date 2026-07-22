@@ -156,6 +156,26 @@ NEW → USER_MESSAGE → THINKING → ASSISTANT_RESPONSE → READY
                     TOOL_CALL (transcribe/summarize)
 ```
 
+### Agent Profiles
+
+Three specialized profiles for different development tasks. Each profile defines system prompt, task flow, constraints, and response format.
+
+| Profile | File | Use when |
+|---------|------|----------|
+| Bug Fix | `profiles/bug-fix.md` | Bug reports, errors, "не работает", "сломалось" |
+| Research | `profiles/research.md` | Codebase questions, "как работает", "объясни" |
+| Code Review | `profiles/code-review.md` | Reviews, MR/PR checks, "проверь", "rev" |
+
+**Profile activation:** Add `/load profiles/<name>.md` or prepend "Следуй профилю из profiles/<name>.md" to prompt.
+
+**Profile invariants (shared):**
+1. Language — Russian (matching UI)
+2. Architecture — two-server (server.py + mcp_server.py)
+3. State — in-memory only
+4. Secrets — .env + os.getenv() only
+5. No blocking I/O in route handlers
+6. ruff check + mypy after every change
+
 ## Good Code Examples
 
 ### Example 1: Lazy model loading with double-checked locking (`mcp_server.py:36-43`)

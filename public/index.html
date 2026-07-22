@@ -85,6 +85,13 @@
                             <polygon points="22 2 15 22 11 13 2 9 22 2"/>
                         </svg>
                     </button>
+                    <button id="tts-toggle" class="tts-toggle active" title="Голосовые ответы (Никитос)">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+                            <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+                            <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
+                        </svg>
+                    </button>
                 </div>
                 <div class="voice-partial" id="voice-partial" style="display:none"></div>
                 <input type="file" id="file-input" accept="video/*,audio/*" style="display:none">
@@ -94,6 +101,18 @@
                 <div class="voice-indicator-inner">
                     <div class="voice-indicator-dot"></div>
                     <span>Говорите... (отпустите Пробел)</span>
+                </div>
+            </div>
+
+            <div class="tts-player-bar" id="tts-player-bar" style="display:none">
+                <div class="tts-player-inner">
+                    <div class="tts-player-dot"></div>
+                    <span id="tts-player-label">Никитос говорит...</span>
+                    <button id="tts-stop-btn" class="tts-stop-btn" title="Остановить">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                            <rect x="6" y="6" width="12" height="12" rx="2"/>
+                        </svg>
+                    </button>
                 </div>
             </div>
         </main>
@@ -126,6 +145,7 @@
     </div>
 
     <script src="/js/voice.js"></script>
+    <script src="/js/tts.js"></script>
     <script src="/js/app.js"></script>
 </body>
 </html>
