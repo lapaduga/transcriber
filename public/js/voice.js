@@ -1,13 +1,13 @@
 (function () {
     var VOSK_WS_URL = 'ws://localhost:2700';
     var SAMPLE_RATE = 16000;
-    var BUFFER_SIZE = 4096;
+    var WORKLET_URL = '/js/audio-processor.js';
 
     function VoiceRecorder() {
         this.ws = null;
         this.context = null;
         this.source = null;
-        this.processor = null;
+        this.workletNode = null;
         this.stream = null;
         this.recording = false;
         this.onPartial = null;
@@ -63,24 +63,27 @@
                     }).then(function (stream) {
                         self.stream = stream;
                         self.context = new AudioContext({ sampleRate: SAMPLE_RATE });
-                        self.source = self.context.createMediaStreamSource(stream);
-                        self.processor = self.context.createScriptProcessor(BUFFER_SIZE, 1, 1);
 
-                        self.processor.onaudioprocess = function (e) {
-                            if (!self.recording || self.ws.readyState !== WebSocket.OPEN) return;
-                            var inputData = e.inputBuffer.getChannelData(0);
-                            var outputBuffer = new Int16Array(inputData.length);
-                            for (var i = 0; i < inputData.length; i++) {
-                                var s = Math.max(-1, Math.min(1, inputData[i]));
-                                outputBuffer[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
-                            }
-                            self.ws.send(outputBuffer.buffer);
-                        };
+                        return self.context.audioWorklet.addModule(WORKLET_URL).then(function () {
+                            self.source = self.context.createMediaStreamSource(stream);
+                            self.workletNode = new AudioWorkletNode(self.context, 'float32-to-int16-processor');
 
-                        self.source.connect(self.processor);
-                        self.processor.connect(self.context.destination);
-                        self.recording = true;
-                        resolve();
+                            self.workletNode.port.onmessage = function (e) {
+                                if (!self.recording || self.ws.readyState !== WebSocket.OPEN) return;
+                                var float32 = e.data.audio;
+                                var int16 = new Int16Array(float32.length);
+                                for (var i = 0; i < float32.length; i++) {
+                                    var s = Math.max(-1, Math.min(1, float32[i]));
+                                    int16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+                                }
+                                self.ws.send(int16.buffer);
+                            };
+
+                            self.source.connect(self.workletNode);
+                            self.workletNode.connect(self.context.destination);
+                            self.recording = true;
+                            resolve();
+                        });
                     }).catch(function (err) {
                         self._cleanup();
                         if (self.onError) self.onError(err);
@@ -103,6 +106,10 @@
             self._resolve = resolve;
             self._reject = reject;
             self.recording = false;
+
+            if (self.workletNode) {
+                self.workletNode.port.postMessage('flush');
+            }
 
             if (self.ws && self.ws.readyState === WebSocket.OPEN) {
                 self.ws.send(JSON.stringify({ eof: 1 }));
@@ -129,9 +136,9 @@
 
     VoiceRecorder.prototype._cleanup = function () {
         this.recording = false;
-        if (this.processor) {
-            this.processor.disconnect();
-            this.processor = null;
+        if (this.workletNode) {
+            this.workletNode.disconnect();
+            this.workletNode = null;
         }
         if (this.source) {
             this.source.disconnect();

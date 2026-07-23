@@ -48,3 +48,14 @@ ignore_missing_imports = true
 [[tool.mypy.overrides]]
 module = ["faster_whisper.*"]
 ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short"
+markers = [
+    "unit: Unit tests (no external dependencies)",
+    "integration: Integration tests (Flask test client)",
+    "smoke: Smoke tests (Playwright UI)",
+]

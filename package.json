@@ -4,6 +4,11 @@
   "description": "Video transcription via DeepSeek Agent + MCP",
   "scripts": {
     "start": "python server.py",
-    "mcp": "python mcp_server.py"
+    "mcp": "python mcp_server.py",
+    "test": "python -m pytest tests/ -v",
+    "test:unit": "python -m pytest tests/test_server_utils.py tests/test_js_utils.py -v",
+    "test:integration": "python -m pytest tests/test_server_routes.py tests/test_mcp_server.py -v",
+    "test:smoke": "python -m pytest tests/test_smoke_playwright.py -v",
+    "test:all": "python run_tests.py --report"
   }
 }

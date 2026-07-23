@@ -38,12 +38,26 @@ transcriber/
 │   ├── index.html         # Single-page app
 │   ├── css/style.css      # All styles (dark theme)
 │   └── js/app.js          # All frontend logic (single IIFE)
+├── tests/                 # Test suite
+│   ├── conftest.py        # Shared fixtures (client, mcp_client, env isolation)
+│   ├── test_server_utils.py    # Unit tests: sanitize_filename, allowed_file, _sanitize_for_tts, _format_duration
+│   ├── test_server_routes.py   # Integration tests: Flask routes (health, upload, chat, summarize, cancel)
+│   ├── test_mcp_server.py      # Integration tests: MCP worker routes + model lazy loading
+│   ├── test_js_utils.py        # Unit tests: JS logic ported to Python (parseMarkdown, formatElapsed)
+│   ├── test_smoke_playwright.py # Smoke tests: Playwright UI scenarios
+│   └── SMOKE-SCENARIOS.md      # Smoke scenario descriptions (text)
+├── test-reports/          # Test artifacts (gitignored)
+│   └── screenshots/       # Playwright screenshots
+├── prompts/               # Agent prompts
+│   └── day3-testing-prompt.md  # Day 3 testing prompt
 ├── uploads/               # Temp file storage (gitignored, auto-cleaned)
 ├── .env                   # Secrets (gitignored)
 ├── .env.example           # Template
 ├── requirements.txt       # Python dependencies
-├── pyproject.toml         # Ruff + mypy config
-├── package.json           # npm scripts only (start/mcp)
+├── requirements-test.txt  # Test dependencies (pytest, playwright)
+├── pyproject.toml         # Ruff + mypy + pytest config
+├── run_tests.py           # Unified test runner with reporting
+├── package.json           # npm scripts only (start/mcp/test)
 └── CLAUDE.md              # This file
 ```
 
@@ -414,4 +428,50 @@ python mcp_server.py
 
 # Install dependencies
 pip install -r requirements.txt
+
+# Install test dependencies
+pip install -r requirements-test.txt
+
+# Run all tests (unit + integration)
+python -m pytest tests/ -v
+
+# Run only unit tests
+python -m pytest tests/test_server_utils.py tests/test_js_utils.py -v
+
+# Run only integration tests
+python -m pytest tests/test_server_routes.py tests/test_mcp_server.py -v
+
+# Run smoke tests (requires server running on :3000)
+python -m pytest tests/test_smoke_playwright.py -v
+
+# Unified test runner with report
+python run_tests.py
+python run_tests.py --level unit
+python run_tests.py --level smoke
+python run_tests.py --report
 ```
+
+## Testing
+
+### Level 1: Code Tests (Unit + Integration)
+
+| File | Tests | Coverage |
+|------|-------|----------|
+| `test_server_utils.py` | sanitize_filename (16), allowed_file (17), _sanitize_for_tts (14), _format_duration (8) | Utils fully covered |
+| `test_server_routes.py` | health (4), stats (2), upload (7), chat (7), summarize (4), cancel (2), stream (1), static (3) | All routes covered |
+| `test_mcp_server.py` | list_tools (3), call_tool (4), get_job (2), cancel_job (3), get_model (2) | All MCP routes covered |
+| `test_js_utils.py` | parseMarkdown (13), formatElapsed (5), formatDuration (5) | JS logic fully covered |
+
+**Total: 123 tests, all passing**
+
+### Level 2: Smoke Tests (Playwright UI)
+
+| Scenario | Description |
+|----------|-------------|
+| S1 | Загрузка страницы, приветствие, статус |
+| S2 | Создание чата, отправка сообщения |
+| S3 | Удаление чата из сайдбара |
+| S4 | Загрузка/удаление файла через UI |
+| S5 | Панель статистики системы |
+
+**Requires:** `pip install playwright pytest-playwright && playwright install chromium`
