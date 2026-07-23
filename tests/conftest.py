@@ -5,6 +5,8 @@ import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
+UPLOADS_DIR = os.path.join(os.path.dirname(__file__), "..", "uploads")
+
 
 @pytest.fixture(autouse=True)
 def _env_isolation(monkeypatch):
@@ -12,6 +14,19 @@ def _env_isolation(monkeypatch):
     monkeypatch.setenv("PORT", "0")
     monkeypatch.setenv("MCP_PORT", "0")
     monkeypatch.setenv("VOSK_PORT", "0")
+
+
+@pytest.fixture(autouse=True)
+def _clean_uploads():
+    for f in os.listdir(UPLOADS_DIR):
+        fp = os.path.join(UPLOADS_DIR, f)
+        if os.path.isfile(fp):
+            os.remove(fp)
+    yield
+    for f in os.listdir(UPLOADS_DIR):
+        fp = os.path.join(UPLOADS_DIR, f)
+        if os.path.isfile(fp):
+            os.remove(fp)
 
 
 @pytest.fixture()

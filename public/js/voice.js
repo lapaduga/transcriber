@@ -69,18 +69,20 @@
                             self.workletNode = new AudioWorkletNode(self.context, 'float32-to-int16-processor');
 
                             self.workletNode.port.onmessage = function (e) {
-                                if (!self.recording || self.ws.readyState !== WebSocket.OPEN) return;
-                                var float32 = e.data.audio;
-                                var int16 = new Int16Array(float32.length);
-                                for (var i = 0; i < float32.length; i++) {
-                                    var s = Math.max(-1, Math.min(1, float32[i]));
-                                    int16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+                                if (self.ws.readyState !== WebSocket.OPEN) return;
+                                if (self._stopping && !e.data.audio) return;
+                                if (e.data.audio) {
+                                    var float32 = e.data.audio;
+                                    var int16 = new Int16Array(float32.length);
+                                    for (var i = 0; i < float32.length; i++) {
+                                        var s = Math.max(-1, Math.min(1, float32[i]));
+                                        int16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+                                    }
+                                    self.ws.send(int16.buffer);
                                 }
-                                self.ws.send(int16.buffer);
                             };
 
                             self.source.connect(self.workletNode);
-                            self.workletNode.connect(self.context.destination);
                             self.recording = true;
                             resolve();
                         });
@@ -105,7 +107,7 @@
         return new Promise(function (resolve, reject) {
             self._resolve = resolve;
             self._reject = reject;
-            self.recording = false;
+            self._stopping = true;
 
             if (self.workletNode) {
                 self.workletNode.port.postMessage('flush');
@@ -115,6 +117,8 @@
                 self.ws.send(JSON.stringify({ eof: 1 }));
 
                 var timeout = setTimeout(function () {
+                    self.recording = false;
+                    self._stopping = false;
                     self._cleanup();
                     resolve('');
                 }, 2000);
@@ -124,10 +128,14 @@
                     clearTimeout(timeout);
                     var result = JSON.parse(event.data);
                     var text = result.text || '';
+                    self.recording = false;
+                    self._stopping = false;
                     self._cleanup();
                     resolve(text);
                 };
             } else {
+                self.recording = false;
+                self._stopping = false;
                 self._cleanup();
                 resolve('');
             }

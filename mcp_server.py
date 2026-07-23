@@ -17,6 +17,7 @@ model = None
 model_lock = threading.Lock()
 jobs = {}
 jobs_lock = threading.Lock()
+MAX_JOBS = 100
 
 TOOLS = [
     {
@@ -129,6 +130,12 @@ def run_transcription(job_id, file_path, language):
             jobs[job_id]["status"] = "error"
             jobs[job_id]["phase"] = "error"
             jobs[job_id]["result"] = str(e)
+
+    with jobs_lock:
+        if len(jobs) > MAX_JOBS:
+            done_ids = [jid for jid, j in jobs.items() if j["status"] in ("done", "error", "cancelled")]
+            for jid in done_ids[: len(done_ids) - MAX_JOBS + 10]:
+                jobs.pop(jid, None)
 
 
 @app.route("/tools", methods=["GET"])

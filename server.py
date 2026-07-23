@@ -95,6 +95,11 @@ TTS_RATE = os.getenv("TTS_RATE", "+20%")
 UPLOAD_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "uploads")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
+for _f in os.listdir(UPLOAD_DIR):
+    _fp = os.path.join(UPLOAD_DIR, _f)
+    if os.path.isfile(_fp):
+        os.remove(_fp)
+
 MAX_FILE_SIZE = 500 * 1024 * 1024
 ALLOWED_EXTENSIONS = {
     ".mp4", ".avi", ".mov", ".mkv", ".webm",
@@ -104,6 +109,7 @@ ALLOWED_EXTENSIONS = {
 conversations = {}
 stream_results = {}
 stream_lock = threading.Lock()
+MAX_CONVERSATIONS = 50
 
 TRANSCRIBE_TOOL = {
     "type": "function",
@@ -321,8 +327,6 @@ def run_transcription_stream(job_id, conversation_id, user_message, file_path, l
         except Exception:
             assistant_msg = transcription
 
-        elapsed = _elapsed(job_id)
-
         if conversation_id in conversations:
             conversations[conversation_id].append({"role": "assistant", "content": assistant_msg})
 
@@ -447,6 +451,8 @@ def sse_stream(job_id):
             yield f"data: {json.dumps(event)}\n\n"
 
             if data["status"] in ("done", "error", "cancelled"):
+                with stream_lock:
+                    stream_results.pop(job_id, None)
                 break
 
             time.sleep(1)
@@ -503,6 +509,9 @@ def chat():
     file_path = data.get("file_path")
 
     if conversation_id not in conversations:
+        if len(conversations) >= MAX_CONVERSATIONS:
+            oldest = next(iter(conversations))
+            del conversations[oldest]
         conversations[conversation_id] = []
 
     conversations[conversation_id].append({"role": "user", "content": user_message})
